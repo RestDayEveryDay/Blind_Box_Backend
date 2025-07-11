@@ -12,18 +12,17 @@ router.post('/register', (req, res) => {
   }
 
   db.run(
-    'INSERT INTO users (username, password) VALUES (?, ?)',
-    [username, password],
+    'INSERT INTO users (username, password, role) VALUES (?, ?, ?)',
+    [username, password, 'user'], // 默认普通用户
     function (err) {
       if (err) {
-        console.error('❗ 注册失败：', err);  // ✅ 控制台输出错误详情
-        return res.status(500).json({ error: '服务器错误，请稍后重试' });
+        console.error('❗ 注册失败：', err);
+        return res.status(500).json({ error: '用户名已存在或非法' });
       }
-      res.json({ message: '注册成功', userId: this.lastID });
+      res.json({ message: '注册成功', userId: this.lastID, role: 'user' });
     }
   );
 });
-
 
 // 登录接口
 router.post('/login', (req, res) => {
@@ -34,7 +33,8 @@ router.post('/login', (req, res) => {
     (err, user) => {
       if (err) return res.status(500).json({ error: '数据库错误' });
       if (!user) return res.status(401).json({ error: '用户名或密码错误' });
-      res.json({ message: '登录成功', userId: user.id });
+
+      res.json({ message: '登录成功', userId: user.id, role: user.role });
     }
   );
 });

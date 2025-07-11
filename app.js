@@ -3,6 +3,7 @@ const cors = require('cors');
 const boxRoutes = require('./routes/box');
 const poolRoutes = require('./routes/pool');
 const authRoutes = require('./routes/auth'); // ✅ 引入 auth 路由
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 app.use(cors());
@@ -12,6 +13,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);           // 注册、登录
 app.use('/api/boxes', boxRoutes);           // 抽盲盒相关
 app.use('/api/pools', poolRoutes);          // 盲盒池
+app.use('/api/admin', adminRoutes);
 
 const PORT = 3001;
 app.listen(PORT, () => {
