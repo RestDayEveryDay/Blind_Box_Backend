@@ -49,6 +49,14 @@ try {
   console.warn('Orders 路由加载失败:', err.message);
 }
 
+try {
+  const rankingRoutes = require('./routes/rankings');
+  app.use('/api/rankings', rankingRoutes);
+  console.log('Rankings OK');
+} catch (err) {
+  console.warn('Rankings 路由加载失败:', err.message);
+}
+
 console.log('所有路由加载完成，启动服务器...');
 
 // 启动服务器
