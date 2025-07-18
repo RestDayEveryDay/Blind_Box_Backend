@@ -1,87 +1,16 @@
-// routes/pool.js - 完整修复版
+// 在 routes/pool.js 中添加新的抽取逻辑
+// 或者创建新文件 routes/pool-draw.js
+
 const express = require('express');
 const db = require('../database');
 const router = express.Router();
 
-// 获取所有盲盒池
-router.get('/', (req, res) => {
-  console.log('📦 获取所有盲盒池');
-  
-  db.all('SELECT * FROM box_pools ORDER BY id', (err, pools) => {
-    if (err) {
-      console.error('❗ 获取盲盒池失败:', err);
-      return res.status(500).json({ error: '数据库错误: ' + err.message });
-    }
-    
-    console.log(`✅ 成功获取 ${pools.length} 个盲盒池`);
-    pools.forEach(pool => {
-      console.log(`  - ${pool.name}: ${pool.description || '无描述'}`);
-    });
-    
-    res.json({ pools });
-  });
-});
-
-// 获取盲盒池详情和预览
-router.get('/:poolId/preview', (req, res) => {
-  const { poolId } = req.params;
-  
-  console.log('👀 获取盲盒池预览:', poolId);
-  
-  // 获取盲盒池信息
-  db.get('SELECT * FROM box_pools WHERE id = ?', [poolId], (err, pool) => {
-    if (err) {
-      console.error('❗ 获取盲盒池失败:', err);
-      return res.status(500).json({ error: '数据库错误: ' + err.message });
-    }
-    
-    if (!pool) {
-      console.log('❌ 盲盒池不存在:', poolId);
-      return res.status(404).json({ error: '盲盒池不存在' });
-    }
-    
-    console.log('✅ 找到盲盒池:', pool.name);
-    
-    // 获取物品列表
-    db.all('SELECT * FROM items WHERE pool_id = ? ORDER BY rarity DESC, id', [poolId], (err, items) => {
-      if (err) {
-        console.error('❗ 获取物品失败:', err);
-        return res.status(500).json({ error: '数据库错误: ' + err.message });
-      }
-      
-      const normalItems = items.filter(item => item.rarity === 'normal');
-      const hiddenItems = items.filter(item => item.rarity === 'hidden');
-      
-      console.log(`✅ 盲盒池 "${pool.name}" 预览: ${normalItems.length} 普通款, ${hiddenItems.length} 隐藏款`);
-      
-      res.json({
-        success: true,
-        pool: pool,
-        preview: {
-          normalItems: normalItems,
-          hiddenItems: hiddenItems.map(item => ({
-            // 隐藏款信息部分隐藏
-            id: item.id,
-            name: '神秘隐藏款',
-            description: '？？？',
-            rarity: item.rarity,
-            drop_rate: item.drop_rate,
-            image_url: 'https://via.placeholder.com/200x200/1a1a1a/ffffff?text=？？？'
-          })),
-          totalItems: items.length,
-          hiddenProbability: hiddenItems.reduce((sum, item) => sum + item.drop_rate, 0) * 100
-        }
-      });
-    });
-  });
-});
-
-// 盲盒池抽取
-router.post('/:poolId/draw', (req, res) => {
+// 新的盲盒池抽取API
+router.post('/draw/:poolId', (req, res) => {
   const { poolId } = req.params;
   const { user_id } = req.body;
   
-  console.log('\n🎁 ========== 盲盒池抽取 ==========');
+  console.log('\n🎁 ========== 新版盲盒池抽取 ==========');
   console.log('📝 收到抽取请求:', { user_id, poolId, body: req.body });
 
   if (!user_id || !poolId) {
@@ -93,7 +22,7 @@ router.post('/:poolId/draw', (req, res) => {
   db.get('SELECT id, username FROM users WHERE id = ?', [user_id], (err, user) => {
     if (err) {
       console.error('❗ 验证用户失败:', err);
-      return res.status(500).json({ error: '数据库错误 - 用户验证: ' + err.message });
+      return res.status(500).json({ error: '数据库错误 - 用户验证' });
     }
     
     if (!user) {
@@ -108,7 +37,7 @@ router.post('/:poolId/draw', (req, res) => {
     db.get('SELECT * FROM box_pools WHERE id = ?', [poolId], (err, pool) => {
       if (err) {
         console.error('❗ 获取盲盒池信息失败:', err);
-        return res.status(500).json({ error: '数据库错误 - 盲盒池查询: ' + err.message });
+        return res.status(500).json({ error: '数据库错误 - 盲盒池查询' });
       }
       
       if (!pool) {
@@ -123,7 +52,7 @@ router.post('/:poolId/draw', (req, res) => {
       db.all('SELECT * FROM items WHERE pool_id = ?', [poolId], (err, items) => {
         if (err) {
           console.error('❗ 获取物品列表失败:', err);
-          return res.status(500).json({ error: '数据库错误 - 物品查询: ' + err.message });
+          return res.status(500).json({ error: '数据库错误 - 物品查询' });
         }
 
         console.log(`📋 盲盒池中有 ${items.length} 个物品:`);
@@ -230,5 +159,56 @@ function weightedRandomSelect(items) {
   // 兜底：返回最后一个物品
   return items[items.length - 1];
 }
+
+// 获取盲盒池详情（包含物品预览）
+router.get('/:poolId/preview', (req, res) => {
+  const { poolId } = req.params;
+  
+  console.log('👀 获取盲盒池预览:', poolId);
+  
+  // 获取盲盒池信息
+  db.get('SELECT * FROM box_pools WHERE id = ?', [poolId], (err, pool) => {
+    if (err) {
+      console.error('❗ 获取盲盒池失败:', err);
+      return res.status(500).json({ error: '数据库错误' });
+    }
+    
+    if (!pool) {
+      return res.status(404).json({ error: '盲盒池不存在' });
+    }
+    
+    // 获取物品列表
+    db.all('SELECT * FROM items WHERE pool_id = ? ORDER BY rarity DESC, id', [poolId], (err, items) => {
+      if (err) {
+        console.error('❗ 获取物品失败:', err);
+        return res.status(500).json({ error: '数据库错误' });
+      }
+      
+      const normalItems = items.filter(item => item.rarity === 'normal');
+      const hiddenItems = items.filter(item => item.rarity === 'hidden');
+      
+      console.log(`✅ 盲盒池 "${pool.name}" 预览: ${normalItems.length} 普通款, ${hiddenItems.length} 隐藏款`);
+      
+      res.json({
+        success: true,
+        pool: pool,
+        preview: {
+          normalItems: normalItems,
+          hiddenItems: hiddenItems.map(item => ({
+            // 隐藏款信息部分隐藏
+            id: item.id,
+            name: '神秘隐藏款',
+            description: '？？？',
+            rarity: item.rarity,
+            drop_rate: item.drop_rate,
+            image_url: 'https://via.placeholder.com/200x200/1a1a1a/ffffff?text=？？？'
+          })),
+          totalItems: items.length,
+          hiddenProbability: hiddenItems.reduce((sum, item) => sum + item.drop_rate, 0) * 100
+        }
+      });
+    });
+  });
+});
 
 module.exports = router;
