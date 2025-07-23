@@ -1,5 +1,4 @@
-// routes/orders.js 
-// 这个文件放在 C:\Users\12096\Desktop\blindbox-backend\routes\orders.js
+// routes/orders.js
 const express = require('express');
 const db = require('../database');
 const router = express.Router();
@@ -15,10 +14,10 @@ router.get('/user/:userId', (req, res) => {
   console.log(`📦 获取用户订单: ${userId}`);
   
   db.all(
-    `SELECT orders.*, boxes.name as box_name, boxes.image_url as box_image, 
-            boxes.price, items.name as item_name, items.rarity, items.image_url as item_image
+    `SELECT orders.*, box_pools.name as box_name, box_pools.image_url as box_image, 
+            items.name as item_name, items.rarity, items.image_url as item_image
      FROM orders 
-     LEFT JOIN boxes ON orders.box_id = boxes.id 
+     LEFT JOIN box_pools ON orders.pool_id = box_pools.id 
      LEFT JOIN items ON orders.item_id = items.id
      WHERE orders.user_id = ?
      ORDER BY orders.created_at DESC`,
@@ -49,10 +48,8 @@ router.get('/stats/:userId', (req, res) => {
   db.get(
     `SELECT 
        COUNT(*) as total_orders,
-       SUM(boxes.price) as total_spent,
-       COUNT(DISTINCT orders.box_id) as unique_boxes
+       COUNT(DISTINCT orders.pool_id) as unique_boxes
      FROM orders 
-     LEFT JOIN boxes ON orders.box_id = boxes.id
      WHERE orders.user_id = ?`,
     [userId],
     (err, basicStats) => {
@@ -85,10 +82,10 @@ router.get('/stats/:userId', (req, res) => {
 
           // 获取最近抽取的物品
           db.all(
-            `SELECT orders.*, boxes.name as box_name, items.name as item_name, 
+            `SELECT orders.*, box_pools.name as box_name, items.name as item_name, 
                     items.rarity, items.image_url as item_image
              FROM orders 
-             LEFT JOIN boxes ON orders.box_id = boxes.id 
+             LEFT JOIN box_pools ON orders.pool_id = box_pools.id 
              LEFT JOIN items ON orders.item_id = items.id
              WHERE orders.user_id = ?
              ORDER BY orders.created_at DESC
@@ -103,7 +100,6 @@ router.get('/stats/:userId', (req, res) => {
               const stats = {
                 basic: {
                   totalOrders: basicStats.total_orders || 0,
-                  totalSpent: basicStats.total_spent || 0,
                   uniqueBoxes: basicStats.unique_boxes || 0
                 },
                 rarity: rarityStats,
@@ -131,10 +127,10 @@ router.get('/lucky/:userId', (req, res) => {
   console.log(`🍀 获取用户幸运记录: ${userId}`);
   
   db.all(
-    `SELECT orders.*, boxes.name as box_name, items.name as item_name, 
-            items.rarity, items.image_url as item_image, boxes.price
+    `SELECT orders.*, box_pools.name as box_name, items.name as item_name, 
+            items.rarity, items.image_url as item_image
      FROM orders 
-     LEFT JOIN boxes ON orders.box_id = boxes.id 
+     LEFT JOIN box_pools ON orders.pool_id = box_pools.id 
      LEFT JOIN items ON orders.item_id = items.id
      WHERE orders.user_id = ? AND items.rarity IN ('legendary', 'epic')
      ORDER BY 

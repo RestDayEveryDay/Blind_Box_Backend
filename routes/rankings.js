@@ -29,7 +29,7 @@ router.get('/luck', (req, res) => {
     FROM users u
     LEFT JOIN orders o ON u.id = o.user_id
     LEFT JOIN items i ON o.item_id = i.id
-    WHERE o.id IS NOT NULL
+    WHERE o.id IS NOT NULL AND u.role != 'admin'
     GROUP BY u.id, u.username
     HAVING COUNT(o.id) >= 3
     ORDER BY (
@@ -79,7 +79,7 @@ router.get('/unluck', (req, res) => {
     FROM users u
     LEFT JOIN orders o ON u.id = o.user_id
     LEFT JOIN items i ON o.item_id = i.id
-    WHERE o.id IS NOT NULL
+    WHERE o.id IS NOT NULL AND u.role != 'admin'
     GROUP BY u.id, u.username
     HAVING COUNT(o.id) >= 5
     ORDER BY (
@@ -119,22 +119,45 @@ router.get('/my-rank/:userId', (req, res) => {
   
   console.log(`👤 获取用户 ${userId} 的排名`);
   
-  // 获取个人统计
-  const personalQuery = `
-    SELECT 
-      u.id as user_id,
-      u.username,
-      COUNT(o.id) as totalOrders,
-      COUNT(CASE WHEN i.rarity = 'legendary' THEN 1 END) as legendaryCount,
-      COUNT(CASE WHEN i.rarity = 'epic' THEN 1 END) as epicCount,
-      COUNT(CASE WHEN i.rarity = 'rare' THEN 1 END) as rareCount,
-      COUNT(CASE WHEN i.rarity = 'common' THEN 1 END) as commonCount
-    FROM users u
-    LEFT JOIN orders o ON u.id = o.user_id
-    LEFT JOIN items i ON o.item_id = i.id
-    WHERE u.id = ?
-    GROUP BY u.id, u.username
-  `;
+  // 首先检查用户是否为管理员
+  const checkAdminQuery = `SELECT role FROM users WHERE id = ?`;
+  
+  db.get(checkAdminQuery, [userId], (err, user) => {
+    if (err) {
+      console.error('❗ 检查用户角色失败:', err);
+      return res.status(500).json({ error: '数据库错误' });
+    }
+    
+    // 如果是管理员，不显示排名
+    if (user && user.role === 'admin') {
+      console.log(`👤 管理员用户 ${userId} 不显示排名`);
+      return res.json({
+        ranking: {
+          luckScore: 0,
+          totalOrders: 0,
+          luckRank: null,
+          unluckRank: null,
+          isAdmin: true
+        }
+      });
+    }
+  
+    // 获取个人统计
+    const personalQuery = `
+      SELECT 
+        u.id as user_id,
+        u.username,
+        COUNT(o.id) as totalOrders,
+        COUNT(CASE WHEN i.rarity = 'legendary' THEN 1 END) as legendaryCount,
+        COUNT(CASE WHEN i.rarity = 'epic' THEN 1 END) as epicCount,
+        COUNT(CASE WHEN i.rarity = 'rare' THEN 1 END) as rareCount,
+        COUNT(CASE WHEN i.rarity = 'common' THEN 1 END) as commonCount
+      FROM users u
+      LEFT JOIN orders o ON u.id = o.user_id
+      LEFT JOIN items i ON o.item_id = i.id
+      WHERE u.id = ?
+      GROUP BY u.id, u.username
+    `;
   
   db.get(personalQuery, [userId], (err, personalStats) => {
     if (err) {
@@ -177,7 +200,7 @@ router.get('/my-rank/:userId', (req, res) => {
         FROM users u
         LEFT JOIN orders o ON u.id = o.user_id
         LEFT JOIN items i ON o.item_id = i.id
-        WHERE o.id IS NOT NULL
+        WHERE o.id IS NOT NULL AND u.role != 'admin'
         GROUP BY u.id
         HAVING COUNT(o.id) >= 3
       )
@@ -205,7 +228,7 @@ router.get('/my-rank/:userId', (req, res) => {
           FROM users u
           LEFT JOIN orders o ON u.id = o.user_id
           LEFT JOIN items i ON o.item_id = i.id
-          WHERE o.id IS NOT NULL
+          WHERE o.id IS NOT NULL AND u.role != 'admin'
           GROUP BY u.id
           HAVING COUNT(o.id) >= 5
         )
@@ -233,13 +256,14 @@ router.get('/my-rank/:userId', (req, res) => {
       });
     });
   });
+  }); // 关闭管理员检查的查询
 });
 
 // 获取排名统计信息
 router.get('/stats', (req, res) => {
   console.log('📊 获取排名统计');
   
-  // 基础统计
+  // 基础统计（排除管理员）
   const basicStatsQuery = `
     SELECT 
       COUNT(DISTINCT u.id) as totalUsers,
@@ -251,6 +275,7 @@ router.get('/stats', (req, res) => {
     FROM users u
     LEFT JOIN orders o ON u.id = o.user_id
     LEFT JOIN items i ON o.item_id = i.id
+    WHERE u.role != 'admin'
   `;
   
   db.get(basicStatsQuery, (err, basicStats) => {
@@ -259,14 +284,22 @@ router.get('/stats', (req, res) => {
       return res.status(500).json({ error: '数据库错误' });
     }
     
-    // 稀有度分布
+    // 稀有度分布（排除管理员）
     const rarityQuery = `
       SELECT 
         i.rarity,
         COUNT(*) as count,
-        ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM orders o2 JOIN items i2 ON o2.item_id = i2.id), 1) as percentage
+        ROUND(COUNT(*) * 100.0 / (
+          SELECT COUNT(*) 
+          FROM orders o2 
+          JOIN items i2 ON o2.item_id = i2.id 
+          JOIN users u2 ON o2.user_id = u2.id 
+          WHERE u2.role != 'admin'
+        ), 1) as percentage
       FROM orders o
       JOIN items i ON o.item_id = i.id
+      JOIN users u ON o.user_id = u.id
+      WHERE u.role != 'admin'
       GROUP BY i.rarity
       ORDER BY 
         CASE i.rarity 
@@ -283,7 +316,7 @@ router.get('/stats', (req, res) => {
         rarityDistribution = [];
       }
       
-      // 运气等级分布
+      // 运气等级分布（排除管理员）
       const luckLevelsQuery = `
         WITH UserLuckScores AS (
           SELECT 
@@ -300,6 +333,7 @@ router.get('/stats', (req, res) => {
           FROM users u
           LEFT JOIN orders o ON u.id = o.user_id
           LEFT JOIN items i ON o.item_id = i.id
+          WHERE u.role != 'admin'
           GROUP BY u.id
         )
         SELECT 
@@ -378,7 +412,7 @@ router.get('/recent-luck', (req, res) => {
     JOIN users u ON o.user_id = u.id
     JOIN items i ON o.item_id = i.id
     JOIN boxes b ON o.box_id = b.id
-    WHERE i.rarity IN ('legendary', 'epic')
+    WHERE i.rarity IN ('legendary', 'epic') AND u.role != 'admin'
     ORDER BY o.created_at DESC
     LIMIT 20
   `;

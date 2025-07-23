@@ -3,19 +3,19 @@ const express = require('express');
 const db = require('../database');
 const router = express.Router();
 
-// 获取所有盲盒池
+// 获取所有激活的盲盒池（前端首页用）
 router.get('/', (req, res) => {
-  console.log('📦 获取所有盲盒池');
+  console.log('📦 获取所有激活的盲盒池');
   
-  db.all('SELECT * FROM box_pools ORDER BY id', (err, pools) => {
+  db.all('SELECT * FROM box_pools WHERE is_active = 1 ORDER BY display_order ASC, id ASC', (err, pools) => {
     if (err) {
       console.error('❗ 获取盲盒池失败:', err);
       return res.status(500).json({ error: '数据库错误: ' + err.message });
     }
     
-    console.log(`✅ 成功获取 ${pools.length} 个盲盒池`);
+    console.log(`✅ 成功获取 ${pools.length} 个激活的盲盒池`);
     pools.forEach(pool => {
-      console.log(`  - ${pool.name}: ${pool.description || '无描述'}`);
+      console.log(`  - ${pool.name}: ${pool.description || '无描述'} (顺序: ${pool.display_order})`);
     });
     
     res.json({ pools });

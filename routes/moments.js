@@ -2,15 +2,17 @@ const express = require('express');
 const db = require('../database');
 const router = express.Router();
 
-// 获取所有动态
+// 获取所有动态（公告优先显示）
 router.get('/', (req, res) => {
   console.log('📖 获取动态列表请求');
   
   db.all(
-    `SELECT moments.*, users.username 
+    `SELECT moments.*, users.username, users.role
      FROM moments 
      JOIN users ON moments.user_id = users.id 
-     ORDER BY moments.created_at DESC`,
+     ORDER BY 
+       CASE WHEN users.role = 'admin' THEN 0 ELSE 1 END,
+       moments.created_at DESC`,
     (err, rows) => {
       if (err) {
         console.error('❗ 获取动态失败:', err);
