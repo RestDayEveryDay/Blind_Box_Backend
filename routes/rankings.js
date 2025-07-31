@@ -5,11 +5,11 @@ const db = require('../database');
 const router = express.Router();
 
 // 计算运气值的函数
-const calculateLuckScore = (legendary, epic, rare, common, total) => {
+const calculateLuckScore = (hidden, normal, total) => {
   if (total === 0) return 0;
   
-  // 运气值计算公式：传说*100 + 史诗*50 + 稀有*20 + 普通*5，然后除以总数
-  const score = (legendary * 100 + epic * 50 + rare * 20 + common * 5) / total;
+  // 运气值计算公式：隐藏款*100 + 普通款*5，然后除以总数
+  const score = (hidden * 100 + normal * 5) / total;
   return Math.min(score, 100); // 最高100分
 };
 
@@ -22,10 +22,8 @@ router.get('/luck', (req, res) => {
       u.id as user_id,
       u.username,
       COUNT(o.id) as totalOrders,
-      COUNT(CASE WHEN i.rarity = 'legendary' THEN 1 END) as legendaryCount,
-      COUNT(CASE WHEN i.rarity = 'epic' THEN 1 END) as epicCount,
-      COUNT(CASE WHEN i.rarity = 'rare' THEN 1 END) as rareCount,
-      COUNT(CASE WHEN i.rarity = 'common' THEN 1 END) as commonCount
+      COUNT(CASE WHEN i.rarity = 'hidden' THEN 1 END) as hiddenCount,
+      COUNT(CASE WHEN i.rarity = 'normal' THEN 1 END) as normalCount
     FROM users u
     LEFT JOIN orders o ON u.id = o.user_id
     LEFT JOIN items i ON o.item_id = i.id
@@ -33,10 +31,8 @@ router.get('/luck', (req, res) => {
     GROUP BY u.id, u.username
     HAVING COUNT(o.id) >= 3
     ORDER BY (
-      COUNT(CASE WHEN i.rarity = 'legendary' THEN 1 END) * 100 + 
-      COUNT(CASE WHEN i.rarity = 'epic' THEN 1 END) * 50 + 
-      COUNT(CASE WHEN i.rarity = 'rare' THEN 1 END) * 20 + 
-      COUNT(CASE WHEN i.rarity = 'common' THEN 1 END) * 5
+      COUNT(CASE WHEN i.rarity = 'hidden' THEN 1 END) * 100 + 
+      COUNT(CASE WHEN i.rarity = 'normal' THEN 1 END) * 5
     ) * 1.0 / COUNT(o.id) DESC
     LIMIT 50
   `;
@@ -50,12 +46,11 @@ router.get('/luck', (req, res) => {
     const rankings = rows.map(row => ({
       ...row,
       luckScore: calculateLuckScore(
-        row.legendaryCount, 
-        row.epicCount, 
-        row.rareCount, 
-        row.commonCount, 
+        row.hiddenCount, 
+        row.normalCount, 
         row.totalOrders
-      )
+      ),
+      hiddenRatio: row.totalOrders > 0 ? row.hiddenCount / row.totalOrders : 0
     }));
     
     console.log(`✅ 成功获取欧皇榜 ${rankings.length} 人`);
@@ -72,10 +67,8 @@ router.get('/unluck', (req, res) => {
       u.id as user_id,
       u.username,
       COUNT(o.id) as totalOrders,
-      COUNT(CASE WHEN i.rarity = 'legendary' THEN 1 END) as legendaryCount,
-      COUNT(CASE WHEN i.rarity = 'epic' THEN 1 END) as epicCount,
-      COUNT(CASE WHEN i.rarity = 'rare' THEN 1 END) as rareCount,
-      COUNT(CASE WHEN i.rarity = 'common' THEN 1 END) as commonCount
+      COUNT(CASE WHEN i.rarity = 'hidden' THEN 1 END) as hiddenCount,
+      COUNT(CASE WHEN i.rarity = 'normal' THEN 1 END) as normalCount
     FROM users u
     LEFT JOIN orders o ON u.id = o.user_id
     LEFT JOIN items i ON o.item_id = i.id
@@ -83,10 +76,8 @@ router.get('/unluck', (req, res) => {
     GROUP BY u.id, u.username
     HAVING COUNT(o.id) >= 5
     ORDER BY (
-      COUNT(CASE WHEN i.rarity = 'legendary' THEN 1 END) * 100 + 
-      COUNT(CASE WHEN i.rarity = 'epic' THEN 1 END) * 50 + 
-      COUNT(CASE WHEN i.rarity = 'rare' THEN 1 END) * 20 + 
-      COUNT(CASE WHEN i.rarity = 'common' THEN 1 END) * 5
+      COUNT(CASE WHEN i.rarity = 'hidden' THEN 1 END) * 100 + 
+      COUNT(CASE WHEN i.rarity = 'normal' THEN 1 END) * 5
     ) * 1.0 / COUNT(o.id) ASC
     LIMIT 50
   `;
@@ -100,12 +91,11 @@ router.get('/unluck', (req, res) => {
     const rankings = rows.map(row => ({
       ...row,
       luckScore: calculateLuckScore(
-        row.legendaryCount, 
-        row.epicCount, 
-        row.rareCount, 
-        row.commonCount, 
+        row.hiddenCount, 
+        row.normalCount, 
         row.totalOrders
-      )
+      ),
+      hiddenRatio: row.totalOrders > 0 ? row.hiddenCount / row.totalOrders : 0
     }));
     
     console.log(`✅ 成功获取非酋榜 ${rankings.length} 人`);
@@ -148,10 +138,8 @@ router.get('/my-rank/:userId', (req, res) => {
         u.id as user_id,
         u.username,
         COUNT(o.id) as totalOrders,
-        COUNT(CASE WHEN i.rarity = 'legendary' THEN 1 END) as legendaryCount,
-        COUNT(CASE WHEN i.rarity = 'epic' THEN 1 END) as epicCount,
-        COUNT(CASE WHEN i.rarity = 'rare' THEN 1 END) as rareCount,
-        COUNT(CASE WHEN i.rarity = 'common' THEN 1 END) as commonCount
+        COUNT(CASE WHEN i.rarity = 'hidden' THEN 1 END) as hiddenCount,
+        COUNT(CASE WHEN i.rarity = 'normal' THEN 1 END) as normalCount
       FROM users u
       LEFT JOIN orders o ON u.id = o.user_id
       LEFT JOIN items i ON o.item_id = i.id
@@ -177,10 +165,8 @@ router.get('/my-rank/:userId', (req, res) => {
     }
     
     const luckScore = calculateLuckScore(
-      personalStats.legendaryCount,
-      personalStats.epicCount,
-      personalStats.rareCount,
-      personalStats.commonCount,
+      personalStats.hiddenCount,
+      personalStats.normalCount,
       personalStats.totalOrders
     );
     
@@ -191,10 +177,8 @@ router.get('/my-rank/:userId', (req, res) => {
           u.id as user_id,
           ROW_NUMBER() OVER (
             ORDER BY (
-              COUNT(CASE WHEN i.rarity = 'legendary' THEN 1 END) * 100 + 
-              COUNT(CASE WHEN i.rarity = 'epic' THEN 1 END) * 50 + 
-              COUNT(CASE WHEN i.rarity = 'rare' THEN 1 END) * 20 + 
-              COUNT(CASE WHEN i.rarity = 'common' THEN 1 END) * 5
+              COUNT(CASE WHEN i.rarity = 'hidden' THEN 1 END) * 100 + 
+              COUNT(CASE WHEN i.rarity = 'normal' THEN 1 END) * 5
             ) * 1.0 / COUNT(o.id) DESC
           ) as luck_rank
         FROM users u
@@ -219,10 +203,8 @@ router.get('/my-rank/:userId', (req, res) => {
             u.id as user_id,
             ROW_NUMBER() OVER (
               ORDER BY (
-                COUNT(CASE WHEN i.rarity = 'legendary' THEN 1 END) * 100 + 
-                COUNT(CASE WHEN i.rarity = 'epic' THEN 1 END) * 50 + 
-                COUNT(CASE WHEN i.rarity = 'rare' THEN 1 END) * 20 + 
-                COUNT(CASE WHEN i.rarity = 'common' THEN 1 END) * 5
+                COUNT(CASE WHEN i.rarity = 'hidden' THEN 1 END) * 100 + 
+                COUNT(CASE WHEN i.rarity = 'normal' THEN 1 END) * 5
               ) * 1.0 / COUNT(o.id) ASC
             ) as unluck_rank
           FROM users u
@@ -243,10 +225,9 @@ router.get('/my-rank/:userId', (req, res) => {
         const ranking = {
           luckScore,
           totalOrders: personalStats.totalOrders,
-          legendaryCount: personalStats.legendaryCount,
-          epicCount: personalStats.epicCount,
-          rareCount: personalStats.rareCount,
-          commonCount: personalStats.commonCount,
+          hiddenCount: personalStats.hiddenCount,
+          normalCount: personalStats.normalCount,
+          hiddenRatio: personalStats.totalOrders > 0 ? personalStats.hiddenCount / personalStats.totalOrders : 0,
           luckRank: luckRank?.luck_rank || null,
           unluckRank: unluckRank?.unluck_rank || null
         };
@@ -268,10 +249,8 @@ router.get('/stats', (req, res) => {
     SELECT 
       COUNT(DISTINCT u.id) as totalUsers,
       COUNT(o.id) as totalOrders,
-      COUNT(CASE WHEN i.rarity = 'legendary' THEN 1 END) as legendaryCount,
-      COUNT(CASE WHEN i.rarity = 'epic' THEN 1 END) as epicCount,
-      COUNT(CASE WHEN i.rarity = 'rare' THEN 1 END) as rareCount,
-      COUNT(CASE WHEN i.rarity = 'common' THEN 1 END) as commonCount
+      COUNT(CASE WHEN i.rarity = 'hidden' THEN 1 END) as hiddenCount,
+      COUNT(CASE WHEN i.rarity = 'normal' THEN 1 END) as normalCount
     FROM users u
     LEFT JOIN orders o ON u.id = o.user_id
     LEFT JOIN items i ON o.item_id = i.id
@@ -324,10 +303,8 @@ router.get('/stats', (req, res) => {
             CASE 
               WHEN COUNT(o.id) = 0 THEN 0
               ELSE (
-                COUNT(CASE WHEN i.rarity = 'legendary' THEN 1 END) * 100 + 
-                COUNT(CASE WHEN i.rarity = 'epic' THEN 1 END) * 50 + 
-                COUNT(CASE WHEN i.rarity = 'rare' THEN 1 END) * 20 + 
-                COUNT(CASE WHEN i.rarity = 'common' THEN 1 END) * 5
+                COUNT(CASE WHEN i.rarity = 'hidden' THEN 1 END) * 100 + 
+                COUNT(CASE WHEN i.rarity = 'normal' THEN 1 END) * 5
               ) * 1.0 / COUNT(o.id)
             END as luckScore
           FROM users u
@@ -381,10 +358,8 @@ router.get('/stats', (req, res) => {
         const stats = {
           totalUsers: basicStats.totalUsers || 0,
           totalOrders: basicStats.totalOrders || 0,
-          legendaryCount: basicStats.legendaryCount || 0,
-          epicCount: basicStats.epicCount || 0,
-          rareCount: basicStats.rareCount || 0,
-          commonCount: basicStats.commonCount || 0,
+          hiddenCount: basicStats.hiddenCount || 0,
+          normalCount: basicStats.normalCount || 0,
           rarityDistribution,
           luckLevels
         };
@@ -406,13 +381,13 @@ router.get('/recent-luck', (req, res) => {
       i.name as item_name,
       i.rarity,
       i.image_url,
-      b.name as box_name,
+      bp.name as pool_name,
       o.created_at
     FROM orders o
     JOIN users u ON o.user_id = u.id
     JOIN items i ON o.item_id = i.id
-    JOIN boxes b ON o.box_id = b.id
-    WHERE i.rarity IN ('legendary', 'epic') AND u.role != 'admin'
+    JOIN box_pools bp ON o.pool_id = bp.id
+    WHERE i.rarity = 'hidden' AND u.role != 'admin'
     ORDER BY o.created_at DESC
     LIMIT 20
   `;

@@ -71,6 +71,15 @@ try {
   console.warn('Rankings 路由加载失败:', err.message);
 }
 
+// Upload 路由
+try {
+  const uploadRoutes = require('./routes/upload');
+  app.use('/api/upload', uploadRoutes);
+  console.log('Upload OK');
+} catch (err) {
+  console.warn('Upload 路由加载失败:', err.message);
+}
+
 console.log('所有路由加载完成，启动服务器...');
 
 // 启动服务器
@@ -88,6 +97,8 @@ app.listen(3001, () => {
   console.log('  - GET  /api/orders/user/:userId');
   console.log('  - GET  /api/orders/stats/:userId');
   console.log('  - GET  /api/rankings/luck');
+  console.log('  - POST /api/upload/pools (图片上传-池子)');
+  console.log('  - POST /api/upload/items (图片上传-物品)');
 });
 
 module.exports = app;

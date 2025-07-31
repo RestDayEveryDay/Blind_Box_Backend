@@ -30,7 +30,7 @@ db.on('error', (err) => {
   console.error('💥 数据库错误:', err);
 });
 
-// 优雅关闭数据库连接
+// 关闭数据库连接
 const closeDatabase = () => {
   return new Promise((resolve, reject) => {
     db.close((err) => {

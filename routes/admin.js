@@ -229,15 +229,15 @@ router.get('/pools/:id/items', (req, res) => {
 // 为盲盒池添加物品
 router.post('/pools/:id/items', (req, res) => {
   const poolId = req.params.id;
-  const { name, description, drop_rate, rarity } = req.body;
+  const { name, description, drop_rate, rarity, image_url } = req.body;
 
   if (!name || drop_rate == null) {
     return res.status(400).json({ error: '物品名称和掉落率不能为空' });
   }
 
   db.run(
-    'INSERT INTO items (pool_id, name, description, drop_rate, rarity) VALUES (?, ?, ?, ?, ?)',
-    [poolId, name, description || '', drop_rate, rarity || 'normal'],
+    'INSERT INTO items (pool_id, name, description, drop_rate, rarity, image_url) VALUES (?, ?, ?, ?, ?, ?)',
+    [poolId, name, description || '', drop_rate, rarity || 'normal', image_url || ''],
     function (err) {
       if (err) {
         console.error('❗ 添加物品失败:', err);

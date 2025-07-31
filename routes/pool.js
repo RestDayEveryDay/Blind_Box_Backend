@@ -66,7 +66,7 @@ router.get('/:poolId/preview', (req, res) => {
             description: '？？？',
             rarity: item.rarity,
             drop_rate: item.drop_rate,
-            image_url: 'https://via.placeholder.com/200x200/1a1a1a/ffffff?text=？？？'
+            image_url: null // 前端会生成本地占位符
           })),
           totalItems: items.length,
           hiddenProbability: hiddenItems.reduce((sum, item) => sum + item.drop_rate, 0) * 100
