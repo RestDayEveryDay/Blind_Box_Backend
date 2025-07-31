@@ -213,6 +213,36 @@ router.put('/pools/:id/move', (req, res) => {
   });
 });
 
+// 更新盲盒池基本信息（包括图片） - 必须放在具体路由之后
+router.put('/pools/:id', (req, res) => {
+  const id = req.params.id;
+  const { name, description, image_url } = req.body;
+
+  console.log(`📝 更新盲盒池 ${id}:`, { name, description, image_url });
+
+  if (!name) {
+    return res.status(400).json({ error: '盲盒池名称不能为空' });
+  }
+
+  db.run(
+    'UPDATE box_pools SET name = ?, description = ?, image_url = ? WHERE id = ?',
+    [name, description || '', image_url || '', id],
+    function (err) {
+      if (err) {
+        console.error('❗ 更新盲盒池失败:', err);
+        return res.status(500).json({ error: '数据库错误' });
+      }
+      
+      if (this.changes === 0) {
+        return res.status(404).json({ error: '盲盒池不存在' });
+      }
+      
+      console.log('✅ 盲盒池更新成功');
+      res.json({ message: '盲盒池更新成功' });
+    }
+  );
+});
+
 // 获取盲盒池的物品列表
 router.get('/pools/:id/items', (req, res) => {
   const poolId = req.params.id;

@@ -77,7 +77,7 @@ router.post('/', (req, res) => {
   });
 });
 
-// 删除动态 - 使用数字参数而不是通配符
+// 删除动态 - 使用更具体的路径避免冲突
 router.delete('/delete/:id', (req, res) => {
   const momentId = parseInt(req.params.id);
   const { user_id } = req.body;

@@ -1,5 +1,5 @@
 // custom-blindbox-creator.js
-// 这个文件放在 C:\Users\12096\Desktop\blindbox-backend\custom-blindbox-creator.js
+
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
@@ -16,7 +16,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
 console.log('🎨 自定义盲盒创建器\n');
 
-// ============== 在这里编写你的盲盒数据 ==============
+// ============== 编写盲盒数据 ==============
 
 const customBlindboxData = [
   // 第一个系列：忙碌的芙芙官
